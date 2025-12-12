@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { Job } from "@/models/Job";
+import Job from "@/models/Job";
 import { Types } from "mongoose";
 
 interface Params {
