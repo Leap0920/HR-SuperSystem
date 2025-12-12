@@ -19,8 +19,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Use relative URL so it goes through Vite proxy (works with ngrok too)
-const API_URL = '/api';
+// Use /HR3/api path so requests work through Next.js proxy (localhost:3000/HR3)
+// Next.js will rewrite /HR3/api/* to the HR3 backend at localhost:5000
+const API_URL = '/HR3/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);

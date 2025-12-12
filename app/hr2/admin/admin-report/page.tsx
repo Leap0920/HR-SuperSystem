@@ -1,20 +1,20 @@
 // app/hr2/reports/page.tsx
 import { FileText, Download, Calendar, Search } from "lucide-react";
-import  StatCard  from "@/components/ui/statcard";
+import StatCard from "@/components/ui/statcard";
 // In your page.tsx
 async function getData() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/hr2/api/admin/reports`, {
-    credentials: "include",
-  });
-  return res.json();
+    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/hr2/api/admin/reports`, {
+        credentials: "include",
+    });
+    return res.json();
 }
 export default async function ReportsPage() {
     const data = await getData();
-  const reports = data.reports || [];     // ← extract the array
-  const stats = data.stats || {};         // ← optional: for dynamic stats later
-  
+    const reports = data.reports || [];     // ← extract the array
+    const stats = data.stats || {};         // ← optional: for dynamic stats later
+
     return (
-        <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-h-screen overflow-y-scroll bg-gray-50 p-6">
             <div className="max-w-7xl mx-auto">
                 <h1 className="text-3xl font-bold text-gray-800">Reports</h1>
                 <p className="text-gray-600 mb-8">Generate and download HR2 system reports</p>

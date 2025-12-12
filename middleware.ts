@@ -32,6 +32,7 @@ export async function middleware(req: NextRequest) {
         if (token) {
             try {
                 const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET)) as { payload: JWTPayload };
+                console.log("TOKEN PAYLOAD:", payload);
 
                 // Redirect based on user role
                 switch (payload.role) {
@@ -39,7 +40,7 @@ export async function middleware(req: NextRequest) {
                     case "employee1":
                         return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
                     case "employee2":
-                        return NextResponse.redirect(new URL("/hr2/employee/job-postings", req.url));
+                        return NextResponse.redirect(new URL("/hr2/employee/dashboard", req.url));
                     case "employee3":
                         return NextResponse.redirect(new URL("/hr3/employee/job-postings", req.url));
                     case "hr1admin":
@@ -49,8 +50,7 @@ export async function middleware(req: NextRequest) {
                     case "hr3admin":
                         return NextResponse.redirect(new URL("/hr3/admin", req.url));
                     default:
-                        // Default redirect for unknown roles or generic 'employee' if not caught above
-                        return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
+                        return NextResponse.redirect(new URL("/hr1/employee/dashboard", req.url));
                 }
             } catch (error) {
                 console.error("Invalid or expired token:", error);
@@ -72,6 +72,7 @@ export async function middleware(req: NextRequest) {
         const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET)) as { payload: JWTPayload };
         const role = payload.role;
 
+        // Role-based access control
         // Role-based access control
         const url = req.nextUrl;
 
@@ -100,7 +101,7 @@ export async function middleware(req: NextRequest) {
 
             case "employee2":
                 if (!pathname.startsWith("/hr2/employee")) {
-                    return NextResponse.redirect(new URL("/hr2/employee/job-postings", req.url));
+                    return NextResponse.redirect(new URL("/hr2/employee/dashboard", req.url));
                 }
                 break;
 

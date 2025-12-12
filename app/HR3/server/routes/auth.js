@@ -59,6 +59,10 @@ router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Please provide email and password' });
+        }
+
         // Check for user email
         const user = await User.findOne({ email }).select('+password');
 
@@ -73,7 +77,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        res.json({
+        return res.json({
             _id: user._id,
             name: user.name,
             email: user.email,
@@ -82,8 +86,8 @@ router.post('/login', async (req, res) => {
             token: generateToken(user._id)
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('Login error:', error);
+        return res.status(500).json({ message: 'Server error', error: error.message || 'Unknown error' });
     }
 });
 
