@@ -22,30 +22,36 @@ export async function middleware(req: NextRequest) {
     if (pathname === "/login" || pathname.startsWith("/login/") || pathname === "/signup" || pathname.startsWith("/signup/")) {
         return NextResponse.redirect(new URL("/", req.url));
     }
-    
+
     // Check if accessing root or app pages
     const isAuthPage = pathname === "/" || pathname === "/app";
-    
+
     // If user is trying to access the root/app page
     if (isAuthPage) {
         // If they have a valid token, redirect them based on their role
         if (token) {
             try {
                 const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET)) as { payload: JWTPayload };
-                
+
                 // Redirect based on user role
-                if (payload.role === "employee") {
-                    return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
-                } else if (payload.role === "hr1admin") {
-                    return NextResponse.redirect(new URL("/hr1/admin", req.url));
-                } else {
-                    // Default redirect for other roles
-                    return NextResponse.redirect(new URL("/hr1/employee/dashboard", req.url));
+                switch (payload.role) {
+                    case "employee1":
+                        return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
+                    case "employee2":
+                        return NextResponse.redirect(new URL("/hr2/employee/job-postings", req.url));
+                    case "employee3":
+                        return NextResponse.redirect(new URL("/hr3/employee/job-postings", req.url));
+                    case "hr1admin":
+                        return NextResponse.redirect(new URL("/hr1/admin", req.url));
+                    case "hr2admin":
+                        return NextResponse.redirect(new URL("/hr2/admin", req.url));
+                    case "hr3admin":
+                        return NextResponse.redirect(new URL("/hr3/admin", req.url));
+                    default:
+                        return NextResponse.redirect(new URL("/hr1/employee/dashboard", req.url));
                 }
             } catch (error) {
-                // Token is invalid, allow access to login page
                 console.error("Invalid or expired token:", error);
-                // Clear the invalid token
                 const response = NextResponse.next();
                 response.cookies.delete("token");
                 return response;
@@ -62,21 +68,58 @@ export async function middleware(req: NextRequest) {
 
     try {
         const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET)) as { payload: JWTPayload };
-        
+        const role = payload.role;
+
         // Role-based access control
-        const isAdminRoute = pathname.startsWith("/hr1/admin");
-        const isEmployeeRoute = pathname.startsWith("/hr1/employee");
-        
-        // If admin trying to access employee routes or vice versa, redirect to their proper dashboard
-        if (isAdminRoute && payload.role !== "hr1admin") {
-            return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
+        // Role-based access control
+        const url = req.nextUrl;
+
+        switch (role) {
+
+            // HR1
+            case "hr1admin":
+                if (!pathname.startsWith("/hr1/admin")) {
+                    return NextResponse.redirect(new URL("/hr1/admin", req.url));
+                }
+                break;
+
+            case "employee1":
+                if (!pathname.startsWith("/hr1/employee")) {
+                    return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
+                }
+                break;
+
+            // HR2
+            case "hr2admin":
+                if (!pathname.startsWith("/hr2/admin")) {
+                    return NextResponse.redirect(new URL("/hr2/admin", req.url));
+                }
+                break;
+
+            case "employee2":
+                if (!pathname.startsWith("/hr2/employee")) {
+                    return NextResponse.redirect(new URL("/hr2/employee/job-postings", req.url));
+                }
+                break;
+
+            // HR3
+            case "hr3admin":
+                if (!pathname.startsWith("/hr3/admin")) {
+                    return NextResponse.redirect(new URL("/hr3/admin", req.url));
+                }
+                break;
+
+            case "employee3":
+                if (!pathname.startsWith("/hr3/employee")) {
+                    return NextResponse.redirect(new URL("/hr3/employee/job-postings", req.url));
+                }
+                break;
+
+            default:
+                console.log("Unknown user role:", role);
+                return NextResponse.redirect(new URL("/", req.url));
         }
-        
-        if (isEmployeeRoute && payload.role === "hr1admin") {
-            return NextResponse.redirect(new URL("/hr1/admin", req.url));
-        }
-        
-        return NextResponse.next();
+
     } catch (error) {
         console.error("Invalid or expired token:", error);
         const response = NextResponse.redirect(new URL("/", req.url));
@@ -97,7 +140,23 @@ export const config = {
         '/hr1/employee/job-postings/:path*',
         '/hr1/employee/dashboard/:path*',
         '/hr1/admin/:path*',
-        '/hr1/dashboard/:path*', 
-        '/hr1/profile'
+        '/hr1/dashboard/:path*',
+        '/hr1/profile',
+        '/hr2/login/:path*',
+        '/hr2/employee/:path*',
+        '/hr2/employee/my-application/:path*',
+        '/hr2/employee/job-postings/:path*',
+        '/hr2/employee/dashboard/:path*',
+        '/hr2/admin/:path*',
+        '/hr2/dashboard/:path*',
+        '/hr2/profile',
+        '/hr3/login/:path*',
+        '/hr3/employee/:path*',
+        '/hr3/employee/my-application/:path*',
+        '/hr3/employee/job-postings/:path*',
+        '/hr3/employee/dashboard/:path*',
+        '/hr3/admin/:path*',
+        '/hr3/dashboard/:path*',
+        '/hr3/profile',
     ],
 };
