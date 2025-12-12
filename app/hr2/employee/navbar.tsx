@@ -1,6 +1,7 @@
 "use client";
 
 import {
+    Home,
     Users,
     BookOpen,
     GraduationCap,
@@ -22,12 +23,13 @@ interface User {
 }
 
 const navItems = [
-    { href: "/hr2/employee/dashboard", label: "Dashboard", icon: Users },
-    { href: "/hr2/employee/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/hr2/employee/dashboard", label: "Dashboard", icon: Home },
     { href: "/hr2/employee/competency", label: "Competency", icon: Users },
     { href: "/hr2/employee/learning", label: "Learning", icon: BookOpen },
     { href: "/hr2/employee/training", label: "Training", icon: GraduationCap },
     { href: "/hr2/employee/employee-ess", label: "ESS", icon: FileText },
+    { href: "/hr2/employee/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/hr2/employee/report", label: "Report", icon: FileBarChart },
 ];
 
 export default function Hr2Sidebar() {
