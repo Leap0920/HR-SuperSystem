@@ -35,8 +35,8 @@ export default function LMSDashboard() {
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="p-6 max-w-7xl mx-auto">
-                <h1 className="text-3xl font-bold text-gray-800">Learning Management (Admin)</h1>
-                <p className="text-gray-500 mb-6">Manage learning modules and track employee progress</p>
+                <h1 className="text-3xl font-bold text-gray-900">Learning Management (Admin)</h1>
+                <p className="text-gray-700 mb-6">Manage learning modules and track employee progress</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                     <StatCard title="Total Modules" value={modules.length} subtitle="active learning paths" color="purple" />
@@ -97,19 +97,19 @@ function ModulesTab({ modules, setSelectedModule }: { modules: Module[]; setSele
             <input type="text" placeholder="Search modules..." className="w-full md:w-96 mb-6 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500" />
             <div className="grid gap-5">
                 {modules.length === 0 ? (
-                    <p className="text-gray-500 text-center py-10">No modules yet. Create one!</p>
+                    <p className="text-gray-700 text-center py-10">No modules yet. Create one!</p>
                 ) : modules.map(m => (
                     <div key={m._id} onClick={() => setSelectedModule(m)} className="p-6 bg-white border border-gray-200 rounded-2xl hover:shadow-md transition cursor-pointer">
                         <div className="flex justify-between items-start mb-3">
-                            <h3 className="text-xl font-bold text-gray-800">{m.title}</h3>
+                            <h3 className="text-xl font-bold text-gray-900">{m.title}</h3>
                             <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">Active</span>
                         </div>
-                        <p className="text-gray-600 mb-4">{m.description}</p>
+                        <p className="text-gray-700 mb-4">{m.description}</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div><p className="text-gray-500">Category</p><p className="font-medium">{m.category || "N/A"}</p></div>
-                            <div><p className="text-gray-500">Topics</p><p className="font-medium">{m.numberOfTopics}</p></div>
-                            <div><p className="text-gray-500">Roles</p><p className="font-medium">{m.targetRoles?.length || 0} roles</p></div>
-                            <div><p className="text-gray-500">File</p><p className="font-medium truncate">{m.fileName ? "Attached" : "None"}</p></div>
+                            <div><p className="text-gray-600 font-medium">Category</p><p className="font-semibold text-gray-900">{m.category || "N/A"}</p></div>
+                            <div><p className="text-gray-600 font-medium">Topics</p><p className="font-semibold text-gray-900">{m.numberOfTopics}</p></div>
+                            <div><p className="text-gray-600 font-medium">Roles</p><p className="font-semibold text-gray-900">{m.targetRoles?.length || 0} roles</p></div>
+                            <div><p className="text-gray-600 font-medium">File</p><p className="font-semibold text-gray-900 truncate">{m.fileName ? "Attached" : "None"}</p></div>
                         </div>
                     </div>
                 ))}
@@ -122,7 +122,7 @@ function ModulesTab({ modules, setSelectedModule }: { modules: Module[]; setSele
 /*                             USER PROGRESS TAB                              */
 /* -------------------------------------------------------------------------- */
 function UserProgressTab() {
-    return <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-500">User progress tracking coming soon...</div>;
+    return <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-700">User progress tracking coming soon...</div>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -193,10 +193,10 @@ function ModuleModal({ module, onClose }: { module: Module; onClose: () => void 
                 <h2 className="text-2xl font-bold pr-10">{module.title}</h2>
                 <p className="text-gray-600 mt-2">{module.description}</p>
                 <div className="grid grid-cols-2 gap-6 mt-6 text-sm">
-                    <div><p className="text-gray-500">Category</p><p className="font-medium">{module.category || "—"}</p></div>
-                    <div><p className="text-gray-500">Topics</p><p className="font-medium">{module.numberOfTopics}</p></div>
-                    <div><p className="text-gray-500">Target Roles</p><p className="font-medium">{module.targetRoles?.join(", ") || "All"}</p></div>
-                    <div><p className="text-gray-500">Attachment</p><p className="font-medium">{module.fileName || "No file"}</p></div>
+                    <div><p className="text-gray-600 font-medium">Category</p><p className="font-semibold text-gray-900">{module.category || "—"}</p></div>
+                    <div><p className="text-gray-600 font-medium">Topics</p><p className="font-semibold text-gray-900">{module.numberOfTopics}</p></div>
+                    <div><p className="text-gray-600 font-medium">Target Roles</p><p className="font-semibold text-gray-900">{module.targetRoles?.join(", ") || "All"}</p></div>
+                    <div><p className="text-gray-600 font-medium">Attachment</p><p className="font-semibold text-gray-900">{module.fileName || "No file"}</p></div>
                 </div>
             </div>
         </div>

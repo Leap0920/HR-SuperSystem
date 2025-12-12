@@ -21,11 +21,11 @@ export default function StatCard({ title, value, subtitle, icon, color = "purple
   return (
     <div className={`p-5 rounded-2xl ${colorMap[color]} border backdrop-blur-sm`}>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-medium opacity-90">{title}</p>
-        {icon && <div className="w-8 h-8 opacity-80">{icon}</div>}
+        <p className="text-sm font-semibold">{title}</p>
+        {icon && <div className="w-8 h-8">{icon}</div>}
       </div>
       <h3 className="text-3xl font-bold">{value}</h3>
-      {subtitle && <p className="text-xs opacity-80 mt-1">{subtitle}</p>}
+      {subtitle && <p className="text-xs font-medium mt-1">{subtitle}</p>}
     </div>
   );
 }

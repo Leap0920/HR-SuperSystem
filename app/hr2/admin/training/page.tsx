@@ -99,8 +99,8 @@ export default function TrainingPage() {
             {showModal && <CreateTrainingModal />}
 
             <div>
-                <h1 className="text-3xl font-bold text-gray-800">Training Management (Admin)</h1>
-                <p className="text-gray-600 mt-1">Organize and manage training programs</p>
+                <h1 className="text-3xl font-bold text-gray-900">Training Management (Admin)</h1>
+                <p className="text-gray-700 mt-1">Organize and manage training programs</p>
             </div>
 
             {/* Stats Cards */}

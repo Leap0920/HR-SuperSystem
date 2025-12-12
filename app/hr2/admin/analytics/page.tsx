@@ -7,8 +7,8 @@ export default function AnalyticsPage() {
     return (
         <div className=" p-6 space-y-6 max-h-screen overflow-y-scroll">
             <div>
-                <h1 className="text-3xl font-bold text-gray-800">Analytics Dashboard</h1>
-                <p className="text-gray-600 mt-1">Comprehensive performance and competency analytics</p>
+                <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+                <p className="text-gray-700 mt-1">Comprehensive performance and competency analytics</p>
             </div>
 
             {/* Stats Cards */}
@@ -62,7 +62,7 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Competency Levels by Skill */}
                 <div className="bg-white p-6 rounded-xl border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-6">Competency Levels by Skill</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Competency Levels by Skill</h3>
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <div className="flex justify-between text-sm">
@@ -128,7 +128,7 @@ export default function AnalyticsPage() {
 
                 {/* Learning Progress Over Time */}
                 <div className="bg-white p-6 rounded-xl border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-6">Learning Progress Over Time</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Learning Progress Over Time</h3>
                     <div className="relative h-64">
                         <svg className="w-full h-full" viewBox="0 0 400 200">
                             {/* Grid lines */}
@@ -199,7 +199,7 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Training Distribution */}
                 <div className="bg-white p-6 rounded-xl border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-6">Training Distribution</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Training Distribution</h3>
                     <div className="flex items-center justify-center h-64">
                         <svg width="200" height="200" viewBox="0 0 200 200">
                             <circle cx="100" cy="100" r="80" fill="none" stroke="#e5e7eb" strokeWidth="40" />
@@ -268,7 +268,7 @@ export default function AnalyticsPage() {
 
                 {/* Department Competency Comparison */}
                 <div className="bg-white p-6 rounded-xl border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-6">Department Competency Comparison</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Department Competency Comparison</h3>
                     <div className="relative h-64">
                         <svg className="w-full h-full" viewBox="0 0 400 200">
                             {/* Grid */}

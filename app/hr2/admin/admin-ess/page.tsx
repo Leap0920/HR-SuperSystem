@@ -25,8 +25,8 @@ export default function ESSPage() {
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-7xl mx-auto">
-                <h1 className="text-3xl font-bold text-gray-800">ESS - Employee Self-Service</h1>
-                <p className="text-gray-600 mb-8">Track and manage employee HR2 requests</p>
+                <h1 className="text-3xl font-bold text-gray-900">ESS - Employee Self-Service</h1>
+                <p className="text-gray-700 mb-8">Track and manage employee HR2 requests</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <StatCard title="Total Requests" value={12} subtitle="all time" icon={<FileText />} color="purple" />
@@ -52,18 +52,18 @@ export default function ESSPage() {
                             <div key={i} className="border rounded-2xl p-6 hover:shadow-md transition">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
-                                        <h3 className="font-bold text-lg flex items-center gap-3">
+                                        <h3 className="font-bold text-lg text-gray-900 flex items-center gap-3">
                                             {req.name}
                                             <span className={`px-3 py-1 text-xs rounded-full ${req.status === "Approved" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
                                                 {req.status}
                                             </span>
                                         </h3>
-                                        <p className="text-gray-600">{req.role}</p>
+                                        <p className="text-gray-700">{req.role}</p>
                                         <p className="text-purple-600 text-sm font-medium mt-2">{req.type}</p>
-                                        <p className="text-gray-600 text-sm mt-1">{req.reason}</p>
+                                        <p className="text-gray-700 text-sm mt-1">{req.reason}</p>
                                     </div>
                                 </div>
-                                <div className="flex justify-between text-sm text-gray-500">
+                                <div className="flex justify-between text-sm text-gray-700">
                                     <div className="flex items-center gap-2">
                                         <Calendar className="w-4 h-4" />
                                         <span>Submission Date: {req.submitted}</span>
