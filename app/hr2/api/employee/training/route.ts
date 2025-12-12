@@ -1,29 +1,36 @@
 // app/hr2/api/employee/training/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import Training from "@/models/hr2/employee/Training";
+import TrainingProgram from "@/models/hr2/admin/TrainingProgram";
 import { verifyToken } from "@/lib/auth";
 import { jwtVerify } from "jose";
 
 async function getUserFromToken(req: NextRequest) {
-  const token = req.cookies.get("token")?.value || req.headers.get("authorization")?.replace("Bearer ", "");
+  const token =
+    req.cookies.get("token")?.value ||
+    req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return null;
-  
+
   try {
     const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) return null;
-    
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
+
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode(JWT_SECRET)
+    );
     return payload;
   } catch {
     return null;
   }
 }
 
-// GET - Get employee's training records
+// GET - Get all training programs and employee's registrations
 export async function GET(req: NextRequest) {
-  const token = req.cookies.get("token")?.value || req.headers.get("authorization")?.replace("Bearer ", "");
-  
+  const token =
+    req.cookies.get("token")?.value ||
+    req.headers.get("authorization")?.replace("Bearer ", "");
+
   if (!token || !verifyToken(token)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -36,35 +43,66 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    const trainings = await Training.find({ employee: user.id })
-      .sort({ createdAt: -1 })
+    // Get all training programs
+    const trainings = await TrainingProgram.find({})
+      .sort({ date: 1 })
       .lean();
 
+    // Get user's registrations (training IDs where user is registered)
+    const myRegistrations = trainings
+      .filter((t) =>
+        t.registrations?.some(
+          (r: { toString: () => string }) => r.toString() === user.id
+        )
+      )
+      .map((t) => t._id.toString());
+
+    // Get user's completed trainings (where user is in attendees)
+    const myCompleted = trainings
+      .filter(
+        (t) =>
+          t.status === "Completed" &&
+          t.attendees?.some(
+            (a: { toString: () => string }) => a.toString() === user.id
+          )
+      )
+      .map((t) => t._id.toString());
+
     // Calculate stats
-    const total = trainings.length;
-    const completed = trainings.filter(t => t.status === "Completed").length;
-    const inProgress = trainings.filter(t => t.status === "In Progress").length;
-    const enrolled = trainings.filter(t => t.status === "Enrolled").length;
+    const upcomingCount = trainings.filter(
+      (t) =>
+        t.status === "Upcoming" &&
+        !t.registrations?.some(
+          (r: { toString: () => string }) => r.toString() === user.id
+        )
+    ).length;
+    const registeredCount = myRegistrations.length;
+    const completedCount = myCompleted.length;
 
     return NextResponse.json({
       trainings,
+      myRegistrations,
       stats: {
-        total,
-        completed,
-        inProgress,
-        enrolled,
-      }
+        upcoming: upcomingCount,
+        registered: registeredCount,
+        completed: completedCount,
+      },
     });
   } catch (error) {
     console.error("Training fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch trainings" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch trainings" },
+      { status: 500 }
+    );
   }
 }
 
-// POST - Enroll in training
+// POST - Register for a training program
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get("token")?.value || req.headers.get("authorization")?.replace("Bearer ", "");
-  
+  const token =
+    req.cookies.get("token")?.value ||
+    req.headers.get("authorization")?.replace("Bearer ", "");
+
   if (!token || !verifyToken(token)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -76,28 +114,64 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, type, startDate, endDate, instructor, location } = body;
+    const { trainingId } = body;
 
-    if (!title) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    if (!trainingId) {
+      return NextResponse.json(
+        { error: "Training ID is required" },
+        { status: 400 }
+      );
     }
 
     await connectDB();
 
-    const training = await Training.create({
-      employee: user.id,
-      title,
-      type: type || "Technical",
-      status: "Enrolled",
-      startDate,
-      endDate,
-      instructor,
-      location,
-    });
+    // Find the training program
+    const training = await TrainingProgram.findById(trainingId);
 
-    return NextResponse.json(training, { status: 201 });
+    if (!training) {
+      return NextResponse.json(
+        { error: "Training program not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check if already registered
+    if (training.registrations?.includes(user.id)) {
+      return NextResponse.json(
+        { error: "Already registered for this training" },
+        { status: 400 }
+      );
+    }
+
+    // Check if training is full
+    if (training.registrations?.length >= training.maxParticipants) {
+      return NextResponse.json(
+        { error: "Training is full" },
+        { status: 400 }
+      );
+    }
+
+    // Check if training is still upcoming
+    if (training.status !== "Upcoming") {
+      return NextResponse.json(
+        { error: "Cannot register for this training" },
+        { status: 400 }
+      );
+    }
+
+    // Add user to registrations
+    training.registrations.push(user.id);
+    await training.save();
+
+    return NextResponse.json(
+      { message: "Successfully registered for training" },
+      { status: 200 }
+    );
   } catch (error) {
-    console.error("Training create error:", error);
-    return NextResponse.json({ error: "Failed to create training" }, { status: 500 });
+    console.error("Training registration error:", error);
+    return NextResponse.json(
+      { error: "Failed to register for training" },
+      { status: 500 }
+    );
   }
 }

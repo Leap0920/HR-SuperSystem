@@ -8,6 +8,7 @@ const trainingProgramSchema = new mongoose.Schema({
   date: { type: Date, required: true },
   time: String,
   location: String,
+  facilitator: String,
   maxParticipants: { type: Number, default: 50 },
   registrations: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
