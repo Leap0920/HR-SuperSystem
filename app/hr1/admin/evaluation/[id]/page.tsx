@@ -16,6 +16,15 @@ import {
     Loader2,
     AlertCircle,
     CheckCheck,
+    Award,
+    Users,
+    Briefcase,
+    ChevronDown,
+    Search,
+    Filter,
+    RefreshCw,
+    ExternalLink,
+    Phone,
 } from "lucide-react";
 
 type Document = {
@@ -32,6 +41,7 @@ type Application = {
     jobId: string;
     fullName: string;
     email: string;
+    phone?: string;
     status: "pending" | "reviewed" | "shortlisted" | "rejected" | "hired";
     appliedAt: string;
     resume?: Document;
@@ -44,6 +54,10 @@ type Application = {
     requestedDocsSubmittedAt?: string | null;
     contract?: Document;
     signedContract?: Document;
+    evaluationScore?: number | null;
+    evaluationTotal?: number | null;
+    evaluationSubmittedAt?: string | null;
+    hasEvaluation?: boolean;
 };
 
 type Job = {
@@ -63,6 +77,9 @@ export default function JobApplicantsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [updating, setUpdating] = useState<string | null>(null);
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [expandedApp, setExpandedApp] = useState<string | null>(null);
 
     useEffect(() => {
         if (jobId) {
@@ -149,31 +166,60 @@ export default function JobApplicantsPage() {
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "pending":
-                return "bg-blue-100 text-blue-700";
-            case "reviewed":
-                return "bg-yellow-100 text-yellow-700";
-            case "shortlisted":
-                return "bg-purple-100 text-purple-700";
-            case "hired":
-                return "bg-green-100 text-green-700";
-            case "rejected":
-                return "bg-red-100 text-red-700";
-            default:
-                return "bg-gray-100 text-gray-700";
-        }
+    const getStatusConfig = (status: string) => {
+        const configs: Record<string, { bg: string; text: string; border: string; icon: React.ReactNode }> = {
+            pending: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", icon: <Clock className="w-4 h-4" /> },
+            reviewed: { bg: "bg-yellow-50", text: "text-yellow-700", border: "border-yellow-200", icon: <Eye className="w-4 h-4" /> },
+            shortlisted: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200", icon: <Award className="w-4 h-4" /> },
+            hired: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", icon: <CheckCheck className="w-4 h-4" /> },
+            rejected: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200", icon: <XCircle className="w-4 h-4" /> },
+        };
+        return configs[status] || configs.pending;
+    };
+
+    const getEvaluationBadge = (app: Application) => {
+        if (!app.hasEvaluation || app.evaluationScore === null) return null;
+
+        const percentage = (app.evaluationScore / (app.evaluationTotal || 1)) * 100;
+        let colorClass = "bg-red-100 text-red-700 border-red-200";
+        if (percentage >= 70) colorClass = "bg-emerald-100 text-emerald-700 border-emerald-200";
+        else if (percentage >= 50) colorClass = "bg-yellow-100 text-yellow-700 border-yellow-200";
+
+        return (
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${colorClass}`}>
+                <Award className="w-4 h-4" />
+                {app.evaluationScore}/{app.evaluationTotal} ({Math.round(percentage)}%)
+            </div>
+        );
+    };
+
+    const filteredApplications = applications.filter((app) => {
+        const q = search.trim().toLowerCase();
+        const matchesSearch = !q ||
+            app.fullName.toLowerCase().includes(q) ||
+            app.email.toLowerCase().includes(q);
+        const matchesStatus = statusFilter === "all" || app.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+
+    const statusCounts = {
+        all: applications.length,
+        pending: applications.filter(a => a.status === "pending").length,
+        reviewed: applications.filter(a => a.status === "reviewed").length,
+        shortlisted: applications.filter(a => a.status === "shortlisted").length,
+        hired: applications.filter(a => a.status === "hired").length,
+        rejected: applications.filter(a => a.status === "rejected").length,
     };
 
     if (loading) {
         return (
-            <div className="w-full bg-gray-50 p-6 max-h-screen overflow-y-auto">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex items-center gap-2 text-gray-600">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Loading applicants...
+            <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="relative">
+                        <div className="w-16 h-16 border-4 border-purple-200 rounded-full animate-spin border-t-purple-600 mx-auto"></div>
+                        <Users className="w-6 h-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                     </div>
+                    <p className="mt-4 text-gray-600 font-medium">Loading applicants...</p>
                 </div>
             </div>
         );
@@ -181,186 +227,230 @@ export default function JobApplicantsPage() {
 
     if (error) {
         return (
-            <div className="w-full bg-gray-50 p-6 max-h-screen overflow-y-auto">
-                <div className="max-w-7xl mx-auto">
-                    <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+            <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 p-6">
+                <div className="max-w-4xl mx-auto">
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+                        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-red-700 mb-2">Error Loading Data</h3>
+                        <p className="text-red-600 mb-4">{error}</p>
+                        <button
+                            onClick={fetchJobAndApplications}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                        >
+                            Try Again
+                        </button>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="w-full bg-gray-50 p-6 max-h-screen overflow-y-auto">
+        <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 p-6 overflow-y-auto">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-6">
+                <div className="mb-8">
                     <button
                         onClick={() => router.push("/hr1/admin/evaluation")}
-                        className="mb-4 inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
+                        className="inline-flex items-center gap-2 text-gray-600 hover:text-purple-600 transition mb-4 group"
                     >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Evaluations
+                        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                        <span className="font-medium">Back to Evaluations</span>
                     </button>
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            {job?.title || "Job Applicants"}
-                        </h1>
-                        <p className="text-gray-600 mt-1">
-                            {job?.department} • {job?.employmentType} • {applications.length} applicant(s)
-                        </p>
+
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                                    <Briefcase className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900">{job?.title || "Job Applicants"}</h1>
+                                    <div className="flex items-center gap-2 text-gray-500 mt-1">
+                                        <span className="px-2 py-0.5 bg-gray-100 rounded-full text-sm">{job?.department}</span>
+                                        <span>•</span>
+                                        <span className="text-sm">{job?.employmentType}</span>
+                                        <span>•</span>
+                                        <span className="text-sm font-medium text-purple-600">{applications.length} applicant(s)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            onClick={fetchJobAndApplications}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl 
+                                     text-gray-700 hover:bg-gray-50 hover:border-purple-300 transition-all shadow-sm"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                {/* Status Tabs */}
+                <div className="bg-white rounded-2xl p-2 shadow-sm border border-gray-100 mb-6 overflow-x-auto">
+                    <div className="flex gap-1 min-w-max">
+                        {[
+                            { value: "all", label: "All" },
+                            { value: "pending", label: "Pending" },
+                            { value: "reviewed", label: "Reviewed" },
+                            { value: "shortlisted", label: "Shortlisted" },
+                            { value: "hired", label: "Hired" },
+                            { value: "rejected", label: "Rejected" },
+                        ].map((tab) => (
+                            <button
+                                key={tab.value}
+                                onClick={() => setStatusFilter(tab.value)}
+                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${statusFilter === tab.value
+                                        ? "bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-md"
+                                        : "text-gray-600 hover:bg-gray-100"
+                                    }`}
+                            >
+                                {tab.label}
+                                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${statusFilter === tab.value ? "bg-white/20" : "bg-gray-100"
+                                    }`}>
+                                    {statusCounts[tab.value as keyof typeof statusCounts]}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Search */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-6">
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by name or email..."
+                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl 
+                                     focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:bg-white
+                                     outline-none transition-all text-gray-900 placeholder-gray-400"
+                        />
                     </div>
                 </div>
 
                 {/* Applicants List */}
-                {applications.length === 0 ? (
-                    <div className="p-6 bg-white border border-gray-200 rounded-lg text-gray-600 text-center">
-                        No applicants yet for this job posting.
+                {filteredApplications.length === 0 ? (
+                    <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Users className="w-10 h-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No Applicants Found</h3>
+                        <p className="text-gray-500 max-w-md mx-auto">
+                            {search || statusFilter !== "all"
+                                ? "No applicants match your current filters."
+                                : "No one has applied for this position yet."
+                            }
+                        </p>
                     </div>
                 ) : (
-                    <div className="space-y-6">
-                        {applications.map((app) => (
-                            <div
-                                key={app._id}
-                                className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm"
-                            >
-                                {/* Applicant Header */}
-                                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6 pb-4 border-b">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <h2 className="text-xl font-semibold text-gray-900">{app.fullName}</h2>
-                                            <span
-                                                className={`px-3 py-1 text-xs rounded-full font-medium ${getStatusColor(
-                                                    app.status
-                                                )}`}
-                                            >
-                                                {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                                            <span className="flex items-center gap-1">
-                                                <Mail className="w-4 h-4" />
-                                                {app.email}
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Calendar className="w-4 h-4" />
-                                                Applied {new Date(app.appliedAt).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                    </div>
+                    <div className="space-y-4">
+                        {filteredApplications.map((app) => {
+                            const statusConfig = getStatusConfig(app.status);
+                            const isExpanded = expandedApp === app._id;
 
-                                    {/* Status Actions */}
-                                    <div className="flex flex-wrap gap-2">
-                                        <select
-                                            value={app.status}
-                                            onChange={(e) => updateApplicationStatus(app._id, e.target.value)}
-                                            disabled={updating === app._id}
-                                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none disabled:opacity-50"
-                                        >
-                                            <option value="pending">Pending</option>
-                                            <option value="reviewed">Reviewed</option>
-                                            <option value="shortlisted">Shortlisted</option>
-                                            <option value="hired">Hired</option>
-                                            <option value="rejected">Rejected</option>
-                                        </select>
-                                        {updating === app._id && (
-                                            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Documents Section */}
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">Submitted Documents</h3>
-
-                                    {/* Initial Documents */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {app.resume && (
-                                            <DocumentCard
-                                                label="Resume"
-                                                document={app.resume}
-                                                onDownload={downloadFile}
-                                                onPreview={previewFile}
-                                                formatFileSize={formatFileSize}
-                                            />
-                                        )}
-                                        {app.applicationLetter && (
-                                            <DocumentCard
-                                                label="Application Letter"
-                                                document={app.applicationLetter}
-                                                onDownload={downloadFile}
-                                                onPreview={previewFile}
-                                                formatFileSize={formatFileSize}
-                                            />
-                                        )}
-                                        {app.supportingDocs?.map((doc, idx) => (
-                                            <DocumentCard
-                                                key={doc.fileId}
-                                                label={`Supporting Document ${idx + 1}`}
-                                                document={doc}
-                                                onDownload={downloadFile}
-                                                onPreview={previewFile}
-                                                formatFileSize={formatFileSize}
-                                            />
-                                        ))}
-                                    </div>
-
-                                    {/* Requested Documents */}
-                                    {app.status === "shortlisted" && (
-                                        <div className="mt-6 pt-6 border-t">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <h4 className="text-md font-semibold text-gray-900">
-                                                    Additional Requested Documents
-                                                </h4>
-                                                {app.requestedDocsSubmitted && (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-sm text-gray-600">
-                                                            Submitted:{" "}
-                                                            {app.requestedDocsSubmittedAt
-                                                                ? new Date(app.requestedDocsSubmittedAt).toLocaleDateString()
-                                                                : "N/A"}
+                            return (
+                                <div
+                                    key={app._id}
+                                    className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden"
+                                >
+                                    {/* Applicant Header */}
+                                    <div
+                                        className="p-6 cursor-pointer"
+                                        onClick={() => setExpandedApp(isExpanded ? null : app._id)}
+                                    >
+                                        <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                            {/* Avatar & Info */}
+                                            <div className="flex items-center gap-4 flex-1">
+                                                <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-blue-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md">
+                                                    {app.fullName.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="text-lg font-bold text-gray-900">{app.fullName}</h3>
+                                                    <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-1">
+                                                        <span className="flex items-center gap-1">
+                                                            <Mail className="w-4 h-4" />
+                                                            {app.email}
                                                         </span>
-                                                        <button
-                                                            onClick={() => approveRequestedDocs(app._id, true)}
-                                                            disabled={updating === app._id}
-                                                            className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                                                        >
-                                                            Approve
-                                                        </button>
-                                                        <button
-                                                            onClick={() => approveRequestedDocs(app._id, false)}
-                                                            disabled={updating === app._id}
-                                                            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                                                        >
-                                                            Reject
-                                                        </button>
+                                                        <span className="flex items-center gap-1">
+                                                            <Calendar className="w-4 h-4" />
+                                                            {new Date(app.appliedAt).toLocaleDateString()}
+                                                        </span>
                                                     </div>
-                                                )}
+                                                </div>
                                             </div>
 
-                                            {app.requestedDocsSubmitted ? (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {app.validId && (
+                                            {/* Status & Score */}
+                                            <div className="flex items-center gap-3">
+                                                {getEvaluationBadge(app)}
+                                                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
+                                                    {statusConfig.icon}
+                                                    {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                                                </div>
+                                                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                        <div className="border-t border-gray-100 p-6 bg-gray-50/50">
+                                            {/* Status Update */}
+                                            <div className="mb-6">
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Update Status</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {["pending", "reviewed", "shortlisted", "hired", "rejected"].map((status) => {
+                                                        const config = getStatusConfig(status);
+                                                        const isActive = app.status === status;
+                                                        return (
+                                                            <button
+                                                                key={status}
+                                                                onClick={() => updateApplicationStatus(app._id, status)}
+                                                                disabled={updating === app._id}
+                                                                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${isActive
+                                                                        ? `${config.bg} ${config.text} ${config.border} ring-2 ring-offset-1 ring-${status === "pending" ? "blue" : status === "reviewed" ? "yellow" : status === "shortlisted" ? "purple" : status === "hired" ? "emerald" : "red"}-300`
+                                                                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                                                                    } disabled:opacity-50`}
+                                                            >
+                                                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    {updating === app._id && (
+                                                        <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Documents */}
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-gray-700 mb-3">Submitted Documents</h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {app.resume && (
                                                         <DocumentCard
-                                                            label="Valid ID"
-                                                            document={app.validId}
+                                                            label="Resume"
+                                                            document={app.resume}
                                                             onDownload={downloadFile}
                                                             onPreview={previewFile}
                                                             formatFileSize={formatFileSize}
                                                         />
                                                     )}
-                                                    {app.portfolio && (
+                                                    {app.applicationLetter && (
                                                         <DocumentCard
-                                                            label="Portfolio"
-                                                            document={app.portfolio}
+                                                            label="Application Letter"
+                                                            document={app.applicationLetter}
                                                             onDownload={downloadFile}
                                                             onPreview={previewFile}
                                                             formatFileSize={formatFileSize}
                                                         />
                                                     )}
-                                                    {app.certificates?.map((doc, idx) => (
+                                                    {app.supportingDocs?.map((doc, idx) => (
                                                         <DocumentCard
                                                             key={doc.fileId}
-                                                            label={`Certificate ${idx + 1}`}
+                                                            label={`Supporting Doc ${idx + 1}`}
                                                             document={doc}
                                                             onDownload={downloadFile}
                                                             onPreview={previewFile}
@@ -368,46 +458,103 @@ export default function JobApplicantsPage() {
                                                         />
                                                     ))}
                                                 </div>
-                                            ) : (
-                                                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                                    <div className="flex items-center gap-2 text-yellow-800">
-                                                        <AlertCircle className="w-5 h-5" />
-                                                        <span>Additional documents not yet submitted by applicant.</span>
+                                            </div>
+
+                                            {/* Requested Docs Section for Shortlisted */}
+                                            {app.status === "shortlisted" && (
+                                                <div className="mt-6 pt-6 border-t border-gray-200">
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <h4 className="text-sm font-semibold text-gray-700">Additional Requested Documents</h4>
+                                                        {app.requestedDocsSubmitted && (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => approveRequestedDocs(app._id, true)}
+                                                                    disabled={updating === app._id}
+                                                                    className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition"
+                                                                >
+                                                                    Approve
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => approveRequestedDocs(app._id, false)}
+                                                                    disabled={updating === app._id}
+                                                                    className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition"
+                                                                >
+                                                                    Reject
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {app.requestedDocsSubmitted ? (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                            {app.validId && (
+                                                                <DocumentCard
+                                                                    label="Valid ID"
+                                                                    document={app.validId}
+                                                                    onDownload={downloadFile}
+                                                                    onPreview={previewFile}
+                                                                    formatFileSize={formatFileSize}
+                                                                />
+                                                            )}
+                                                            {app.portfolio && (
+                                                                <DocumentCard
+                                                                    label="Portfolio"
+                                                                    document={app.portfolio}
+                                                                    onDownload={downloadFile}
+                                                                    onPreview={previewFile}
+                                                                    formatFileSize={formatFileSize}
+                                                                />
+                                                            )}
+                                                            {app.certificates?.map((doc, idx) => (
+                                                                <DocumentCard
+                                                                    key={doc.fileId}
+                                                                    label={`Certificate ${idx + 1}`}
+                                                                    document={doc}
+                                                                    onDownload={downloadFile}
+                                                                    onPreview={previewFile}
+                                                                    formatFileSize={formatFileSize}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
+                                                            <AlertCircle className="w-5 h-5 text-amber-500" />
+                                                            <span className="text-amber-700">Waiting for applicant to submit additional documents.</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Contract Section for Hired */}
+                                            {app.status === "hired" && (
+                                                <div className="mt-6 pt-6 border-t border-gray-200">
+                                                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Contract Documents</h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        {app.contract && (
+                                                            <DocumentCard
+                                                                label="Contract (Provided)"
+                                                                document={app.contract}
+                                                                onDownload={downloadFile}
+                                                                onPreview={previewFile}
+                                                                formatFileSize={formatFileSize}
+                                                            />
+                                                        )}
+                                                        {app.signedContract && (
+                                                            <DocumentCard
+                                                                label="Signed Contract"
+                                                                document={app.signedContract}
+                                                                onDownload={downloadFile}
+                                                                onPreview={previewFile}
+                                                                formatFileSize={formatFileSize}
+                                                            />
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
                                         </div>
                                     )}
-
-                                    {/* Contract Documents (for hired) */}
-                                    {app.status === "hired" && (
-                                        <div className="mt-6 pt-6 border-t">
-                                            <h4 className="text-md font-semibold text-gray-900 mb-4">Contract Documents</h4>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {app.contract && (
-                                                    <DocumentCard
-                                                        label="Contract (Provided)"
-                                                        document={app.contract}
-                                                        onDownload={downloadFile}
-                                                        onPreview={previewFile}
-                                                        formatFileSize={formatFileSize}
-                                                    />
-                                                )}
-                                                {app.signedContract && (
-                                                    <DocumentCard
-                                                        label="Signed Contract"
-                                                        document={app.signedContract}
-                                                        onDownload={downloadFile}
-                                                        onPreview={previewFile}
-                                                        formatFileSize={formatFileSize}
-                                                    />
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -429,29 +576,29 @@ function DocumentCard({
     formatFileSize: (bytes: number) => string;
 }) {
     return (
-        <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
-            <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <FileText className="w-8 h-8 text-blue-600 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 text-sm">{label}</p>
-                        <p className="text-sm text-gray-600 truncate">{document.filename}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                            {formatFileSize(document.size)} • {new Date(document.uploadedAt).toLocaleDateString()}
-                        </p>
-                    </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4 hover:border-purple-300 hover:shadow-sm transition-all group">
+            <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-purple-600" />
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 text-sm">{label}</p>
+                    <p className="text-xs text-gray-500 truncate">{document.filename}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        {formatFileSize(document.size)} • {new Date(document.uploadedAt).toLocaleDateString()}
+                    </p>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                        onClick={() => onPreview(document.fileId)}
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded transition"
+                        onClick={(e) => { e.stopPropagation(); onPreview(document.fileId); }}
+                        className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
                         title="Preview"
                     >
                         <Eye className="w-4 h-4" />
                     </button>
                     <button
-                        onClick={() => onDownload(document.fileId, document.filename)}
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded transition"
+                        onClick={(e) => { e.stopPropagation(); onDownload(document.fileId, document.filename); }}
+                        className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
                         title="Download"
                     >
                         <Download className="w-4 h-4" />
@@ -461,5 +608,3 @@ function DocumentCard({
         </div>
     );
 }
-
-

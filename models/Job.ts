@@ -1,7 +1,7 @@
 // models/Job.ts
 import mongoose, { Schema, model, models } from "mongoose";
 
-const UserSchema = new Schema(
+const JobSchema = new Schema(
   {
     title: { type: String, required: true },
     department: { type: String, required: true },
@@ -18,4 +18,6 @@ const UserSchema = new Schema(
   { timestamps: true }
 );
 
-export default models.Job || model("jobposting", UserSchema);
+// Using "Job" as the model name to match the ref in Application model
+const Job = models.Job || model("Job", JobSchema);
+export default Job;
