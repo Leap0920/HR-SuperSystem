@@ -3,114 +3,93 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-    Plus,
-    Eye,
-    ClipboardList,
-    Loader2,
     Search,
-    X,
     Users,
-    Briefcase,
     CheckCircle,
     Clock,
-    TrendingUp,
-    FileText,
-    ChevronRight,
     Award,
     Filter,
-    BarChart3,
-    UserCheck,
-    AlertCircle,
     RefreshCw,
+    ChevronDown,
+    Mail,
+    Calendar,
+    Briefcase,
+    FileText,
+    Eye,
+    AlertCircle,
+    ClipboardCheck,
+    ClipboardList,
+    TrendingUp,
+    Building2,
+    Loader2,
 } from "lucide-react";
 
-type Job = {
+type Applicant = {
     _id: string;
-    title: string;
+    fullName: string;
+    email: string;
+    jobId: string;
+    jobTitle: string;
     department: string;
     employmentType: string;
-    status?: string;
-    applicants?: number;
-};
-
-type Question = {
-    _id: string;
-    question: string;
-    options: string[];
-    correctAnswer: string;
-};
-
-type QuestionForm = {
-    question: string;
-    options: string[];
-    correctAnswer: string;
+    status: string;
+    appliedAt: string;
+    hasEvaluation: boolean;
+    evaluationScore: number | null;
+    evaluationTotal: number | null;
+    evaluationSubmittedAt: string | null;
+    hasResume: boolean;
+    hasApplicationLetter: boolean;
 };
 
 type Stats = {
-    totalJobs: number;
-    totalApplicants: number;
-    activeJobs: number;
-    pendingEvaluations: number;
-};
-
-const defaultQuestion: QuestionForm = {
-    question: "",
-    options: ["", "", "", ""],
-    correctAnswer: "",
+    total: number;
+    pendingEvaluation: number;
+    completedEvaluation: number;
+    departments: string[];
 };
 
 export default function EvaluationDashboard() {
     const router = useRouter();
-    const [jobs, setJobs] = useState<Job[]>([]);
+    const [applicants, setApplicants] = useState<Applicant[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState<string>("all");
-
-    const [showQuestionModal, setShowQuestionModal] = useState(false);
-    const [showQuestionsListModal, setShowQuestionsListModal] = useState(false);
-    const [activeJobId, setActiveJobId] = useState<string | null>(null);
-    const [activeJobTitle, setActiveJobTitle] = useState<string>("");
-    const [questionForm, setQuestionForm] = useState<QuestionForm>(defaultQuestion);
-    const [savingQuestion, setSavingQuestion] = useState(false);
-    const [existingQuestions, setExistingQuestions] = useState<Question[]>([]);
-    const [loadingQuestions, setLoadingQuestions] = useState(false);
-
+    const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+    const [activeTab, setActiveTab] = useState<"pending" | "completed">("pending");
+    const [departments, setDepartments] = useState<string[]>([]);
     const [stats, setStats] = useState<Stats>({
-        totalJobs: 0,
-        totalApplicants: 0,
-        activeJobs: 0,
-        pendingEvaluations: 0,
+        total: 0,
+        pendingEvaluation: 0,
+        completedEvaluation: 0,
+        departments: [],
     });
+    const [expandedApplicant, setExpandedApplicant] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchJobs();
+        fetchApplicants();
     }, []);
 
-    const fetchJobs = async () => {
+    const fetchApplicants = async () => {
         try {
             setLoading(true);
             setError(null);
 
-            const res = await fetch("/hr1/api/admin/evaluation/jobs", {
+            const res = await fetch("/hr1/api/admin/evaluation", {
                 credentials: "include",
             });
 
-            if (!res.ok) throw new Error("Failed to load jobs");
+            if (!res.ok) throw new Error("Failed to load applicants");
             const data = await res.json();
-            const jobsData = data || [];
-            setJobs(jobsData);
 
-            // Calculate stats
-            const totalApplicants = jobsData.reduce((acc: number, j: Job) => acc + (j.applicants || 0), 0);
-            const activeJobs = jobsData.filter((j: Job) => j.status === "Active").length;
-
-            setStats({
-                totalJobs: jobsData.length,
-                totalApplicants,
-                activeJobs,
-                pendingEvaluations: totalApplicants, // This could be refined with actual evaluation status
+            setApplicants(data.applicants || []);
+            setStats(data.stats || {
+                total: 0,
+                pendingEvaluation: 0,
+                completedEvaluation: 0,
+                departments: [],
             });
+            setDepartments(data.departments || []);
         } catch (err) {
             setError("Failed to load evaluation data. Please try again.");
             console.error(err);
@@ -119,144 +98,46 @@ export default function EvaluationDashboard() {
         }
     };
 
-    const fetchQuestionsForJob = async (jobId: string) => {
-        try {
-            setLoadingQuestions(true);
-            const res = await fetch(`/hr1/api/evaluation/questions?jobId=${jobId}`, {
-                credentials: "include",
-            });
-            if (!res.ok) throw new Error("Failed to fetch questions");
-            const data = await res.json();
-            setExistingQuestions(data.questions || []);
-        } catch (err) {
-            console.error("Failed to fetch questions:", err);
-            setExistingQuestions([]);
-        } finally {
-            setLoadingQuestions(false);
-        }
-    };
+    // Filter applicants based on tab, department, and search
+    const filteredApplicants = applicants.filter((app) => {
+        // Tab filter
+        if (activeTab === "pending" && app.hasEvaluation) return false;
+        if (activeTab === "completed" && !app.hasEvaluation) return false;
 
-    const openQuestionsModal = (jobId: string, jobTitle: string) => {
-        setActiveJobId(jobId);
-        setActiveJobTitle(jobTitle);
-        setQuestionForm(defaultQuestion);
-        fetchQuestionsForJob(jobId);
-        setShowQuestionsListModal(true);
-    };
+        // Department filter
+        if (departmentFilter !== "all" && app.department !== departmentFilter) return false;
 
-    const openAddQuestionModal = () => {
-        setShowQuestionsListModal(false);
-        setShowQuestionModal(true);
-    };
-
-    const closeQuestionsModal = () => {
-        setShowQuestionModal(false);
-        setShowQuestionsListModal(false);
-        setActiveJobId(null);
-        setActiveJobTitle("");
-        setQuestionForm(defaultQuestion);
-        setExistingQuestions([]);
-    };
-
-    const handleOptionChange = (idx: number, val: string) => {
-        setQuestionForm((prev) => {
-            const nextOptions = [...prev.options];
-            nextOptions[idx] = val;
-            return { ...prev, options: nextOptions };
-        });
-    };
-
-    const handleSaveQuestion = async () => {
-        if (!activeJobId) return;
-
-        if (!questionForm.question.trim()) {
-            alert("Question is required");
-            return;
-        }
-
-        const cleanedOptions = questionForm.options
-            .map((o) => o.trim())
-            .filter(Boolean);
-
-        if (cleanedOptions.length < 2) {
-            alert("At least 2 options are required");
-            return;
-        }
-
-        if (!cleanedOptions.includes(questionForm.correctAnswer.trim())) {
-            alert("Correct answer must match one of the options");
-            return;
-        }
-
-        try {
-            setSavingQuestion(true);
-
-            const res = await fetch(
-                `/hr1/api/admin/evaluation/questions?jobId=${activeJobId}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({
-                        question: questionForm.question.trim(),
-                        options: cleanedOptions,
-                        correctAnswer: questionForm.correctAnswer.trim(),
-                    }),
-                }
-            );
-
-            if (!res.ok) {
-                const text = await res.text();
-                throw new Error(text || "Failed to save question");
-            }
-
-            // Refresh questions list
-            await fetchQuestionsForJob(activeJobId);
-            setQuestionForm(defaultQuestion);
-            setShowQuestionModal(false);
-            setShowQuestionsListModal(true);
-        } catch (err: any) {
-            alert(err.message || "Failed to save question");
-        } finally {
-            setSavingQuestion(false);
-        }
-    };
-
-    const filteredJobs = jobs.filter((job) => {
+        // Search filter
         const q = search.trim().toLowerCase();
-        const matchesSearch = !q ||
-            job.title.toLowerCase().includes(q) ||
-            job.department.toLowerCase().includes(q) ||
-            job.employmentType.toLowerCase().includes(q);
+        if (q) {
+            return (
+                app.fullName.toLowerCase().includes(q) ||
+                app.email.toLowerCase().includes(q) ||
+                app.jobTitle.toLowerCase().includes(q) ||
+                app.department.toLowerCase().includes(q)
+            );
+        }
 
-        const matchesStatus = statusFilter === "all" || job.status === statusFilter;
-
-        return matchesSearch && matchesStatus;
+        return true;
     });
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "Active":
-                return "bg-emerald-100 text-emerald-700 border-emerald-200";
-            case "Inactive":
-                return "bg-gray-100 text-gray-600 border-gray-200";
-            case "Closed":
-                return "bg-red-100 text-red-700 border-red-200";
-            default:
-                return "bg-gray-100 text-gray-600 border-gray-200";
-        }
+    // Group by department for display
+    const groupedByDepartment = filteredApplicants.reduce((acc, app) => {
+        const dept = app.department || "Unassigned";
+        if (!acc[dept]) acc[dept] = [];
+        acc[dept].push(app);
+        return acc;
+    }, {} as Record<string, Applicant[]>);
+
+    const getScoreColor = (score: number, total: number) => {
+        const percentage = (score / total) * 100;
+        if (percentage >= 70) return "text-emerald-600 bg-emerald-100 border-emerald-200";
+        if (percentage >= 50) return "text-yellow-600 bg-yellow-100 border-yellow-200";
+        return "text-red-600 bg-red-100 border-red-200";
     };
 
-    const getDepartmentColor = (dept: string) => {
-        const colors = [
-            "bg-blue-100 text-blue-700",
-            "bg-purple-100 text-purple-700",
-            "bg-pink-100 text-pink-700",
-            "bg-indigo-100 text-indigo-700",
-            "bg-cyan-100 text-cyan-700",
-        ];
-        const index = dept.charCodeAt(0) % colors.length;
-        return colors[index];
+    const getScorePercentage = (score: number, total: number) => {
+        return Math.round((score / total) * 100);
     };
 
     if (loading) {
@@ -265,7 +146,7 @@ export default function EvaluationDashboard() {
                 <div className="text-center">
                     <div className="relative">
                         <div className="w-16 h-16 border-4 border-purple-200 rounded-full animate-spin border-t-purple-600 mx-auto"></div>
-                        <ClipboardList className="w-6 h-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                        <ClipboardCheck className="w-6 h-6 text-purple-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                     </div>
                     <p className="mt-4 text-gray-600 font-medium">Loading evaluations...</p>
                 </div>
@@ -281,14 +162,14 @@ export default function EvaluationDashboard() {
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                                Evaluation Center
+                                Applicant Evaluations
                             </h1>
                             <p className="text-gray-600 mt-2 text-lg">
-                                Manage applicant evaluations, questionnaires, and assessments
+                                Track and manage evaluation tests for all applicants
                             </p>
                         </div>
                         <button
-                            onClick={fetchJobs}
+                            onClick={fetchApplicants}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl 
                                      text-gray-700 hover:bg-gray-50 hover:border-purple-300 transition-all shadow-sm"
                         >
@@ -299,60 +180,28 @@ export default function EvaluationDashboard() {
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Total Positions</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalJobs}</p>
-                            </div>
-                            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200 group-hover:scale-105 transition-transform">
-                                <Briefcase className="w-7 h-7 text-white" />
-                            </div>
-                        </div>
-                        <div className="mt-3 flex items-center text-sm text-gray-500">
-                            <TrendingUp className="w-4 h-4 text-emerald-500 mr-1" />
-                            <span className="text-emerald-600 font-medium">{stats.activeJobs} active</span>
-                        </div>
-                    </div>
-
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Total Applicants</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalApplicants}</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.total}</p>
                             </div>
-                            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 group-hover:scale-105 transition-transform">
+                            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200 group-hover:scale-105 transition-transform">
                                 <Users className="w-7 h-7 text-white" />
                             </div>
                         </div>
                         <div className="mt-3 flex items-center text-sm text-gray-500">
-                            <UserCheck className="w-4 h-4 text-blue-500 mr-1" />
-                            <span>Awaiting evaluation</span>
+                            <TrendingUp className="w-4 h-4 text-purple-500 mr-1" />
+                            <span>Across all departments</span>
                         </div>
                     </div>
 
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-500">Active Jobs</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeJobs}</p>
-                            </div>
-                            <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:scale-105 transition-transform">
-                                <CheckCircle className="w-7 h-7 text-white" />
-                            </div>
-                        </div>
-                        <div className="mt-3 flex items-center text-sm text-gray-500">
-                            <BarChart3 className="w-4 h-4 text-emerald-500 mr-1" />
-                            <span>Currently recruiting</span>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Pending Reviews</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.pendingEvaluations}</p>
+                                <p className="text-sm font-medium text-gray-500">Pending Evaluation</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.pendingEvaluation}</p>
                             </div>
                             <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-amber-200 group-hover:scale-105 transition-transform">
                                 <Clock className="w-7 h-7 text-white" />
@@ -360,8 +209,58 @@ export default function EvaluationDashboard() {
                         </div>
                         <div className="mt-3 flex items-center text-sm text-gray-500">
                             <AlertCircle className="w-4 h-4 text-amber-500 mr-1" />
-                            <span>Need attention</span>
+                            <span>Haven't taken the test yet</span>
                         </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all group">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-500">Completed Evaluation</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.completedEvaluation}</p>
+                            </div>
+                            <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:scale-105 transition-transform">
+                                <CheckCircle className="w-7 h-7 text-white" />
+                            </div>
+                        </div>
+                        <div className="mt-3 flex items-center text-sm text-gray-500">
+                            <Award className="w-4 h-4 text-emerald-500 mr-1" />
+                            <span>Test completed with scores</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="bg-white rounded-2xl p-2 shadow-sm border border-gray-100 mb-6">
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setActiveTab("pending")}
+                            className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === "pending"
+                                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
+                                    : "text-gray-600 hover:bg-gray-100"
+                                }`}
+                        >
+                            <Clock className="w-5 h-5" />
+                            Pending Evaluation
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === "pending" ? "bg-white/20" : "bg-amber-100 text-amber-700"
+                                }`}>
+                                {stats.pendingEvaluation}
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("completed")}
+                            className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === "completed"
+                                    ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md"
+                                    : "text-gray-600 hover:bg-gray-100"
+                                }`}
+                        >
+                            <CheckCircle className="w-5 h-5" />
+                            Completed Evaluation
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === "completed" ? "bg-white/20" : "bg-emerald-100 text-emerald-700"
+                                }`}>
+                                {stats.completedEvaluation}
+                            </span>
+                        </button>
                     </div>
                 </div>
 
@@ -374,25 +273,25 @@ export default function EvaluationDashboard() {
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search by job title, department, or type..."
+                                placeholder="Search by name, email, job title, or department..."
                                 className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl 
                                          focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:bg-white
                                          outline-none transition-all text-gray-900 placeholder-gray-400"
                             />
                         </div>
                         <div className="flex items-center gap-2">
-                            <Filter className="w-5 h-5 text-gray-400" />
+                            <Building2 className="w-5 h-5 text-gray-400" />
                             <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
+                                value={departmentFilter}
+                                onChange={(e) => setDepartmentFilter(e.target.value)}
                                 className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl 
                                          focus:ring-2 focus:ring-purple-500 focus:border-purple-500
-                                         outline-none transition-all text-gray-700 cursor-pointer"
+                                         outline-none transition-all text-gray-700 cursor-pointer min-w-[180px]"
                             >
-                                <option value="all">All Status</option>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                                <option value="Closed">Closed</option>
+                                <option value="all">All Departments</option>
+                                {departments.map((dept) => (
+                                    <option key={dept} value={dept}>{dept}</option>
+                                ))}
                             </select>
                         </div>
                     </div>
@@ -404,7 +303,7 @@ export default function EvaluationDashboard() {
                         <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
                         <p className="text-red-700">{error}</p>
                         <button
-                            onClick={fetchJobs}
+                            onClick={fetchApplicants}
                             className="ml-auto px-3 py-1 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
                         >
                             Retry
@@ -412,311 +311,220 @@ export default function EvaluationDashboard() {
                     </div>
                 )}
 
-                {/* Jobs Grid */}
-                {filteredJobs.length === 0 ? (
+                {/* Applicants List - Grouped by Department */}
+                {filteredApplicants.length === 0 ? (
                     <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Briefcase className="w-10 h-10 text-gray-400" />
+                            {activeTab === "pending" ? (
+                                <Clock className="w-10 h-10 text-gray-400" />
+                            ) : (
+                                <CheckCircle className="w-10 h-10 text-gray-400" />
+                            )}
                         </div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">No Jobs Found</h3>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                            {activeTab === "pending" ? "No Pending Evaluations" : "No Completed Evaluations"}
+                        </h3>
                         <p className="text-gray-500 max-w-md mx-auto">
-                            {search || statusFilter !== "all"
-                                ? "No jobs match your current filters. Try adjusting your search or filter criteria."
-                                : "No job postings available for evaluation yet. Create a new job posting to get started."
+                            {activeTab === "pending"
+                                ? "All applicants have completed their evaluation tests, or no applicants match your filters."
+                                : "No applicants have completed their evaluation yet, or no applicants match your filters."
                             }
                         </p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {filteredJobs.map((job) => (
-                            <div
-                                key={job._id}
-                                className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg 
-                                         hover:border-purple-200 transition-all duration-300 overflow-hidden group"
-                            >
-                                <div className="p-6">
-                                    {/* Job Header */}
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 flex-wrap mb-2">
-                                                <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(job.status || "Inactive")}`}>
-                                                    {job.status || "Inactive"}
-                                                </span>
-                                                <span className={`px-3 py-1 text-xs font-medium rounded-full ${getDepartmentColor(job.department)}`}>
-                                                    {job.department}
-                                                </span>
+                    <div className="space-y-6">
+                        {Object.entries(groupedByDepartment).map(([department, deptApplicants]) => (
+                            <div key={department} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                {/* Department Header */}
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                                <Building2 className="w-5 h-5 text-purple-600" />
                                             </div>
-                                            <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
-                                                {job.title}
-                                            </h3>
-                                            <p className="text-gray-500 text-sm mt-1">{job.employmentType}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-blue-100 rounded-xl flex items-center justify-center">
-                                                <Users className="w-6 h-6 text-purple-600" />
+                                            <div>
+                                                <h3 className="font-bold text-gray-900">{department}</h3>
+                                                <p className="text-sm text-gray-500">{deptApplicants.length} applicant(s)</p>
                                             </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Applicants Count */}
-                                    <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 rounded-xl">
-                                        <div className="flex items-center gap-2">
-                                            <Users className="w-5 h-5 text-gray-500" />
-                                            <span className="text-2xl font-bold text-gray-900">{job.applicants ?? 0}</span>
-                                            <span className="text-gray-500">applicants</span>
+                                {/* Applicants in this Department */}
+                                <div className="divide-y divide-gray-100">
+                                    {deptApplicants.map((applicant) => (
+                                        <div
+                                            key={applicant._id}
+                                            className="p-4 hover:bg-gray-50 transition-colors"
+                                        >
+                                            <div
+                                                className="flex flex-col md:flex-row md:items-center gap-4 cursor-pointer"
+                                                onClick={() => setExpandedApplicant(
+                                                    expandedApplicant === applicant._id ? null : applicant._id
+                                                )}
+                                            >
+                                                {/* Avatar & Name */}
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                                        {applicant.fullName.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-semibold text-gray-900 truncate">{applicant.fullName}</h4>
+                                                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mt-0.5">
+                                                            <span className="flex items-center gap-1">
+                                                                <Mail className="w-3.5 h-3.5" />
+                                                                {applicant.email}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Job Info */}
+                                                <div className="flex items-center gap-2">
+                                                    <Briefcase className="w-4 h-4 text-gray-400" />
+                                                    <span className="text-sm text-gray-700 font-medium">{applicant.jobTitle}</span>
+                                                    <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700">
+                                                        {applicant.employmentType}
+                                                    </span>
+                                                </div>
+
+                                                {/* Evaluation Status */}
+                                                <div className="flex items-center gap-3">
+                                                    {applicant.hasEvaluation ? (
+                                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border ${getScoreColor(applicant.evaluationScore!, applicant.evaluationTotal!)
+                                                            }`}>
+                                                            <Award className="w-4 h-4" />
+                                                            {applicant.evaluationScore}/{applicant.evaluationTotal}
+                                                            <span className="text-xs opacity-75">
+                                                                ({getScorePercentage(applicant.evaluationScore!, applicant.evaluationTotal!)}%)
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                                            <Clock className="w-4 h-4" />
+                                                            Pending
+                                                        </div>
+                                                    )}
+                                                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expandedApplicant === applicant._id ? "rotate-180" : ""
+                                                        }`} />
+                                                </div>
+                                            </div>
+
+                                            {/* Expanded Details */}
+                                            {expandedApplicant === applicant._id && (
+                                                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    <div className="bg-gray-50 rounded-xl p-4">
+                                                        <h5 className="text-xs font-semibold text-gray-500 uppercase mb-2">Application Info</h5>
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-gray-500">Applied</span>
+                                                                <span className="font-medium text-gray-900">
+                                                                    {new Date(applicant.appliedAt).toLocaleDateString()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-gray-500">Status</span>
+                                                                <span className="font-medium text-gray-900 capitalize">
+                                                                    {applicant.status}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-gray-50 rounded-xl p-4">
+                                                        <h5 className="text-xs font-semibold text-gray-500 uppercase mb-2">Documents</h5>
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="flex items-center gap-2">
+                                                                {applicant.hasResume ? (
+                                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                                                ) : (
+                                                                    <AlertCircle className="w-4 h-4 text-gray-300" />
+                                                                )}
+                                                                <span className={applicant.hasResume ? "text-gray-900" : "text-gray-400"}>
+                                                                    Resume
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {applicant.hasApplicationLetter ? (
+                                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                                                ) : (
+                                                                    <AlertCircle className="w-4 h-4 text-gray-300" />
+                                                                )}
+                                                                <span className={applicant.hasApplicationLetter ? "text-gray-900" : "text-gray-400"}>
+                                                                    Application Letter
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-gray-50 rounded-xl p-4">
+                                                        <h5 className="text-xs font-semibold text-gray-500 uppercase mb-2">Evaluation</h5>
+                                                        {applicant.hasEvaluation ? (
+                                                            <div className="space-y-2 text-sm">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-gray-500">Score</span>
+                                                                    <span className="font-bold text-gray-900">
+                                                                        {applicant.evaluationScore}/{applicant.evaluationTotal}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-gray-500">Completed</span>
+                                                                    <span className="font-medium text-gray-900">
+                                                                        {applicant.evaluationSubmittedAt
+                                                                            ? new Date(applicant.evaluationSubmittedAt).toLocaleDateString()
+                                                                            : "N/A"
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                                {/* Progress bar */}
+                                                                <div className="mt-2">
+                                                                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className={`h-full rounded-full ${getScorePercentage(applicant.evaluationScore!, applicant.evaluationTotal!) >= 70
+                                                                                    ? "bg-emerald-500"
+                                                                                    : getScorePercentage(applicant.evaluationScore!, applicant.evaluationTotal!) >= 50
+                                                                                        ? "bg-yellow-500"
+                                                                                        : "bg-red-500"
+                                                                                }`}
+                                                                            style={{
+                                                                                width: `${getScorePercentage(applicant.evaluationScore!, applicant.evaluationTotal!)}%`
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 text-sm text-amber-600">
+                                                                <Clock className="w-4 h-4" />
+                                                                <span>Waiting for applicant to take test</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* View Full Application Button */}
+                                                    <div className="md:col-span-3 flex justify-end">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                router.push(`/hr1/admin/evaluation/${applicant.jobId}`);
+                                                            }}
+                                                            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 
+                                                                     text-white rounded-xl hover:from-purple-600 hover:to-blue-600 transition-all font-medium shadow-md"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                            View Full Application
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex flex-col sm:flex-row gap-3">
-                                        <button
-                                            onClick={() => router.push(`/hr1/admin/evaluation/${job._id}`)}
-                                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 
-                                                     bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl 
-                                                     hover:from-blue-600 hover:to-blue-700 transition-all font-medium
-                                                     shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300"
-                                        >
-                                            <Eye className="w-5 h-5" />
-                                            View Applicants
-                                            <ChevronRight className="w-4 h-4" />
-                                        </button>
-
-                                        <button
-                                            onClick={() => openQuestionsModal(job._id, job.title)}
-                                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 
-                                                     bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl 
-                                                     hover:from-purple-600 hover:to-purple-700 transition-all font-medium
-                                                     shadow-md shadow-purple-200 hover:shadow-lg hover:shadow-purple-300"
-                                        >
-                                            <ClipboardList className="w-5 h-5" />
-                                            Questions
-                                        </button>
-                                    </div>
+                                    ))}
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
-
-            {/* Questions List Modal */}
-            {showQuestionsListModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-                        {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-5 text-white">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-xl font-bold">Evaluation Questions</h2>
-                                    <p className="text-purple-100 text-sm mt-1">{activeJobTitle}</p>
-                                </div>
-                                <button
-                                    onClick={closeQuestionsModal}
-                                    className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Modal Body */}
-                        <div className="p-6 max-h-[60vh] overflow-y-auto">
-                            {loadingQuestions ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-                                </div>
-                            ) : existingQuestions.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <FileText className="w-10 h-10 text-purple-500" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Questions Yet</h3>
-                                    <p className="text-gray-500 mb-6">Add evaluation questions for applicants to answer.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {existingQuestions.map((q, idx) => (
-                                        <div key={q._id} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                                            <div className="flex items-start gap-3">
-                                                <span className="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0">
-                                                    {idx + 1}
-                                                </span>
-                                                <div className="flex-1">
-                                                    <p className="font-medium text-gray-900 mb-3">{q.question}</p>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                        {q.options.map((opt, optIdx) => (
-                                                            <div
-                                                                key={optIdx}
-                                                                className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 ${opt === q.correctAnswer
-                                                                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                                                                        : "bg-white text-gray-700 border border-gray-200"
-                                                                    }`}
-                                                            >
-                                                                {opt === q.correctAnswer && <CheckCircle className="w-4 h-4" />}
-                                                                {opt}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="border-t bg-gray-50 px-6 py-4 flex justify-between items-center">
-                            <span className="text-sm text-gray-500">
-                                {existingQuestions.length} question(s) total
-                            </span>
-                            <button
-                                onClick={openAddQuestionModal}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 
-                                         text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium shadow-md"
-                            >
-                                <Plus className="w-5 h-5" />
-                                Add Question
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Add Question Modal */}
-            {showQuestionModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-                        {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-5 text-white">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-xl font-bold">Add New Question</h2>
-                                    <p className="text-purple-100 text-sm mt-1">{activeJobTitle}</p>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        setShowQuestionModal(false);
-                                        setShowQuestionsListModal(true);
-                                    }}
-                                    className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Modal Body */}
-                        <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
-                            {/* Question Input */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Question <span className="text-red-500">*</span>
-                                </label>
-                                <textarea
-                                    value={questionForm.question}
-                                    onChange={(e) =>
-                                        setQuestionForm((prev) => ({
-                                            ...prev,
-                                            question: e.target.value,
-                                        }))
-                                    }
-                                    rows={3}
-                                    placeholder="Enter your evaluation question here..."
-                                    className="w-full border border-gray-300 rounded-xl px-4 py-3 
-                                             focus:ring-2 focus:ring-purple-500 focus:border-purple-500 
-                                             outline-none transition resize-none"
-                                />
-                            </div>
-
-                            {/* Options */}
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Answer Options <span className="text-red-500">*</span>
-                                    </label>
-                                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                                        At least 2 required
-                                    </span>
-                                </div>
-
-                                <div className="space-y-3">
-                                    {questionForm.options.map((opt, idx) => (
-                                        <div key={idx} className="flex items-center gap-3">
-                                            <span className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center font-medium text-gray-600 text-sm">
-                                                {String.fromCharCode(65 + idx)}
-                                            </span>
-                                            <input
-                                                type="text"
-                                                value={opt}
-                                                onChange={(e) => handleOptionChange(idx, e.target.value)}
-                                                className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 
-                                                         focus:ring-2 focus:ring-purple-500 focus:border-purple-500 
-                                                         outline-none transition"
-                                                placeholder={`Option ${idx + 1}`}
-                                            />
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="radio"
-                                                    name="correct"
-                                                    checked={questionForm.correctAnswer === opt && opt.trim() !== ""}
-                                                    onChange={() =>
-                                                        setQuestionForm((p) => ({
-                                                            ...p,
-                                                            correctAnswer: opt,
-                                                        }))
-                                                    }
-                                                    disabled={!opt.trim()}
-                                                    className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
-                                                />
-                                                <span className={`text-xs font-medium ${questionForm.correctAnswer === opt && opt.trim()
-                                                        ? "text-emerald-600"
-                                                        : "text-gray-500"
-                                                    }`}>
-                                                    Correct
-                                                </span>
-                                            </label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-3">
-                            <button
-                                onClick={() => {
-                                    setShowQuestionModal(false);
-                                    setShowQuestionsListModal(true);
-                                }}
-                                className="px-5 py-2.5 text-gray-700 border border-gray-300 rounded-xl 
-                                         hover:bg-gray-100 transition font-medium"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSaveQuestion}
-                                disabled={savingQuestion}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 
-                                         text-white rounded-xl hover:from-purple-700 hover:to-blue-700 
-                                         transition-all font-medium shadow-md disabled:opacity-60"
-                            >
-                                {savingQuestion ? (
-                                    <>
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="w-5 h-5" />
-                                        Save Question
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

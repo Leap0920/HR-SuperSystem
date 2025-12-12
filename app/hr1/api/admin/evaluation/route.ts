@@ -1,51 +1,77 @@
-"use server";
-
-import { NextRequest, NextResponse } from "next/server";
-import { Types } from "mongoose";
+// API route to fetch all applicants with their evaluation status
+import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
+import Job from "@/models/Job";
 import { Application } from "@/models/Applications";
-import mongoose from "mongoose";
+import EvaluationResult from "@/models/EvaluationResult";
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
     await connectDB();
-    const db = mongoose.connection.db;
-    if (!db) throw new Error("Database connection not established");
 
-    const grouped = await Application.aggregate([
-      {
-        $group: {
-          _id: "$jobId",
-          applicants: { $sum: 1 },
-        },
-      },
-    ]);
+    // Get all applications with job details
+    const applications = await Application.find()
+      .sort({ appliedAt: -1 })
+      .lean();
 
-    const jobsCollection = db.collection("jobs");
-    const allJobs = await jobsCollection.find({}).toArray();
+    // Get all jobs for department info
+    const jobs = await Job.find().lean();
+    const jobMap = new Map(jobs.map((j: any) => [j._id.toString(), j]));
 
-    const applicantCountMap = new Map<string, number>();
-    grouped.forEach((g) => {
-      if (g._id) {
-        applicantCountMap.set(g._id.toString(), g.applicants || 0);
-      }
+    // Get all evaluation results
+    const evaluationResults = await EvaluationResult.find().lean();
+    const evalMap = new Map(
+      evaluationResults.map((e: any) => [e.applicationId?.toString(), e])
+    );
+
+    // Get unique departments
+    const departments = [...new Set(jobs.map((j: any) => j.department).filter(Boolean))];
+
+    // Map applications with evaluation status
+    const applicantsWithEval = applications.map((app: any) => {
+      const job = jobMap.get(app.jobId?.toString());
+      const evaluation = evalMap.get(app._id?.toString());
+
+      return {
+        _id: app._id?.toString(),
+        fullName: app.fullName,
+        email: app.email,
+        jobId: app.jobId?.toString(),
+        jobTitle: job?.title || app.jobTitle || "Unknown Position",
+        department: job?.department || "Unassigned",
+        employmentType: job?.employmentType || "",
+        status: app.status,
+        appliedAt: app.appliedAt,
+        // Evaluation data
+        hasEvaluation: !!evaluation,
+        evaluationScore: evaluation?.score ?? null,
+        evaluationTotal: evaluation?.totalQuestions ?? null,
+        evaluationSubmittedAt: evaluation?.submittedAt ?? null,
+        // Documents
+        hasResume: !!app.resume?.fileId,
+        hasApplicationLetter: !!app.applicationLetter?.fileId,
+      };
     });
 
-    const data = allJobs.map((job: any) => ({
-      _id: job._id?.toString(),
-      title: job.title || "Untitled",
-      department: job.department || "",
-      employmentType: job.employmentType || "",
-      status: job.status || "Inactive",
-      applicants: applicantCountMap.get(job._id?.toString() || "") || 0,
-    }));
+    // Calculate stats
+    const stats = {
+      total: applicantsWithEval.length,
+      pendingEvaluation: applicantsWithEval.filter((a: any) => !a.hasEvaluation).length,
+      completedEvaluation: applicantsWithEval.filter((a: any) => a.hasEvaluation).length,
+      departments: departments,
+    };
 
-    data.sort((a, b) => a.title.localeCompare(b.title));
+    return NextResponse.json({
+      applicants: applicantsWithEval,
+      stats,
+      departments,
+    }, { status: 200 });
 
-    return NextResponse.json(data, { status: 200 });
-  } catch (err) {
-    console.error("GET /admin/evaluation error:", err);
-    return NextResponse.json({ error: "Failed to load evaluation summary" }, { status: 500 });
+  } catch (error) {
+    console.error("Error loading applicants for evaluation:", error);
+    return NextResponse.json(
+      { error: "Failed to load applicants" },
+      { status: 500 }
+    );
   }
 }
-
