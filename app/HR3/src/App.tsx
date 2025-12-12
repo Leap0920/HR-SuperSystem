@@ -32,7 +32,7 @@ import './App.css';
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/HR3">
         <Routes>
           <Route path="/login" element={<Login />} />
 
