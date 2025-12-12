@@ -35,6 +35,7 @@ export async function middleware(req: NextRequest) {
 
                 // Redirect based on user role
                 switch (payload.role) {
+                    case "employee":
                     case "employee1":
                         return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
                     case "employee2":
@@ -48,7 +49,8 @@ export async function middleware(req: NextRequest) {
                     case "hr3admin":
                         return NextResponse.redirect(new URL("/hr3/admin", req.url));
                     default:
-                        return NextResponse.redirect(new URL("/hr1/employee/dashboard", req.url));
+                        // Default redirect for unknown roles or generic 'employee' if not caught above
+                        return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
                 }
             } catch (error) {
                 console.error("Invalid or expired token:", error);
@@ -71,7 +73,6 @@ export async function middleware(req: NextRequest) {
         const role = payload.role;
 
         // Role-based access control
-        // Role-based access control
         const url = req.nextUrl;
 
         switch (role) {
@@ -83,6 +84,7 @@ export async function middleware(req: NextRequest) {
                 }
                 break;
 
+            case "employee":
             case "employee1":
                 if (!pathname.startsWith("/hr1/employee")) {
                     return NextResponse.redirect(new URL("/hr1/employee/job-postings", req.url));
