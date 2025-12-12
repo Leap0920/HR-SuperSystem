@@ -90,3 +90,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create ESS request" }, { status: 500 });
   }
 }
+
+// DELETE - Cancel a pending ESS request
+export async function DELETE(req: NextRequest) {
+  const token = req.cookies.get("token")?.value || req.headers.get("authorization")?.replace("Bearer ", "");
+  
+  if (!token || !verifyToken(token)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const user = await getUserFromToken(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { requestId } = body;
+
+    if (!requestId) {
+      return NextResponse.json({ error: "Request ID is required" }, { status: 400 });
+    }
+
+    await connectDB();
+
+    // Find and delete only if it belongs to the user and is still pending
+    const essRequest = await ESSRequest.findOneAndDelete({
+      _id: requestId,
+      employee: user.id,
+      status: "Pending",
+    });
+
+    if (!essRequest) {
+      return NextResponse.json({ error: "Request not found or cannot be cancelled" }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: "Request cancelled successfully" });
+  } catch (error) {
+    console.error("ESS delete error:", error);
+    return NextResponse.json({ error: "Failed to cancel ESS request" }, { status: 500 });
+  }
+}
